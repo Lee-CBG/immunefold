@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import hydra
 from omegaconf import DictConfig
-
+import time
 from einops import rearrange
 
 from carbonmatrix.data.pdbio import save_pdb
@@ -72,7 +72,7 @@ def save_batch_pdb(values, batch, pdb_dir, step=None, mode=None):
             pdb_file = os.path.join(pdb_dir, f'{names[i]}.step{step}.pdb')
 
         chain_ids = names[i].split('_')[1:]
-        if len(chain_ids) < 2:
+        if len(chain_ids) <= 2:
             chain_ids = None
         else:
             chain_ids = list(filter(None, chain_ids))
@@ -121,7 +121,7 @@ def immunefold(model, batch, cfg):
 
 def predict(cfg):
     if cfg.data_io == 'dir':
-        dataset = SeqDatasetDirIO(cfg.test_data, cfg.type, cfg.test_name_idx)
+        dataset = SeqDatasetDirIO(cfg.test_data, cfg.test_name_idx, cfg.type)
         collate_fn = collate_fn_seq
     elif cfg.data_io == 'fasta':
         dataset = SeqDatasetFastaIO(cfg.test_data, cfg.type)
@@ -154,12 +154,14 @@ def predict(cfg):
     model.impl.load_state_dict(ckpt['model_state_dict'], strict=True)
     model.to(device)
     model.eval()
-
+    
 
     for batch in test_loader:
         logging.info('names= {}'.format(','.join(batch['name'])))
         logging.info('str_len= {}'.format(','.join([str(len(x)) for x in batch['str_seq']])))
+        start_time = time.time()
         immunefold(model, batch, cfg)
+        logging.info('Inference Time: {}'.format(time.time() - start_time))
 
 
 @hydra.main(version_base=None, config_path="config", config_name="inference_tcr")

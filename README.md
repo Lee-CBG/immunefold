@@ -11,12 +11,11 @@ git clone git@github.com:CarbonMatrixLab/immunefold.git
 conda env create -f environment.yml
 pip install fair-esm
 ```
-
-Additionally, to compute the mutation effects on TCR-pMHC interactions, please install the [PyRosetta package](https://www.pyrosetta.org/downloads).
+ImmuneFold also need to install the [ANARCI](https://github.com/oxpig/ANARCI). Additionally, to compute the mutation effects on TCR-pMHC interactions, please install the [PyRosetta package](https://www.pyrosetta.org/downloads).
 
 ## Model Weights
 1. Download the **ImmuneFold-TCR** and **ImmuneFold-Ab** [here](https://zenodo.org/records/14580322?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6ImZlZmRkOGIxLWFjMTAtNDYxYy1iOTJiLWUxN2ExMDEyNzM2MyIsImRhdGEiOnt9LCJyYW5kb20iOiJmOWI5N2EyODBjZDI5NTc5MzFjZTRhMmQ2ZWYwYTkzYSJ9.wmA-_qfzQjpmULDIkODBBCMSmEorvpK69N7VO8Nb06r_qag4wXkyMRaDJysXZA3G0KhKM3AkdmjjdDZeg7bWNQ) and place them in the `./params` directory.
-2. Download the **ESM2 model** weights from [this link](https://dl.fbaipublicfiles.com/fair-esm/models/esm2_t33_650M_UR50D.pt) and the **contact regressor** weights from [here](https://dl.fbaipublicfiles.com/fair-esm/regression/esm2_t33_650M_UR50D-contact-regression.pt). Save these files in the `./params` directory.
+2. Download the **ESM2 model** weights from [this link](https://dl.fbaipublicfiles.com/fair-esm/models/esm2_t36_3B_UR50D.pt) and the **contact regressor** weights from [here](https://dl.fbaipublicfiles.com/fair-esm/regression/esm2_t36_3B_UR50D-contact-regression.pt). Save these files in the `./params` directory.
 
 ## Usage
 
