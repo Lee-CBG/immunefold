@@ -123,7 +123,7 @@ def make_domain(str_seq, chain_id, type='ab'):
     elif type == 'nb':
         allow = ['H']
     elif type == 'tcr':
-        allow = ['B'] if chain_id == 'B' else ['A']
+        allow = ['B'] if chain_id == 'B' else ['A', 'D']
 
     anarci_res = renumber_ab_seq(str_seq, allow=allow, scheme='imgt')
     domain_numbering, domain_start, domain_end = map(anarci_res.get, ['domain_numbering', 'start', 'end'])
