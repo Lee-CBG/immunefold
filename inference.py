@@ -16,6 +16,8 @@ from carbonmatrix.data.base_dataset import TransformedDataLoader as DataLoader
 from carbonmatrix.data.base_dataset import collate_fn_seq, collate_fn_struc
 from carbonmatrix.common.confidence import compute_plddt, compute_ptm
 
+torch.set_float32_matmul_precision('high')
+
 class WorkerLogFilter(logging.Filter):
     def __init__(self, rank=-1):
         super().__init__()
@@ -111,7 +113,7 @@ def _compute_ptm(values, mask, chain_id=None, interface=True, batch=None):
 
 def immunefold(model, batch, cfg):
 
-    with torch.no_grad():
+    with torch.inference_mode():
         ret = model(batch, compute_loss=True)
         ptm = _compute_ptm(ret, batch['mask'], chain_id=batch['chain_id'], interface=True, batch=batch)
         plddt, full_plddt = _compute_plddt(ret, batch['mask'])
@@ -143,7 +145,7 @@ def predict(cfg):
             drop_last=False,
             )
 
-    ckpt = torch.load(cfg.restore_model_ckpt, map_location='cpu')
+    ckpt = torch.load(cfg.restore_model_ckpt, map_location='cpu', weights_only=False)
 
     if cfg.restore_esm2_model is not None:
         cfg.model.esm2_model_file = cfg.restore_esm2_model
@@ -154,7 +156,8 @@ def predict(cfg):
     model.impl.load_state_dict(ckpt['model_state_dict'], strict=True)
     model.to(device)
     model.eval()
-    
+    model.esm = torch.compile(model.esm)
+
 
     for batch in test_loader:
         logging.info('names= {}'.format(','.join(batch['name'])))
