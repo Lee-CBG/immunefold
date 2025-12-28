@@ -17,9 +17,6 @@ three_to_one = {
     'TYR': 'Y', 'VAL': 'V'
 }
 
-init('-use_input_sc -input_ab_scheme AHo_Scheme -ignore_unrecognized_res \
-    -ignore_zero_occupancy false -load_PDB_components true -relax:default_repeats 2 -no_fconfig', silent=True)
-
 def parse_energy_log(energy_log_path):
     fields = ['Energy']
     data = list()
@@ -139,12 +136,16 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--cpus', type=int, default=1)
     parser.add_argument('-m', '--mode', type=str, required=True, choices=['whole', 'interface'])
     parser.add_argument('-v', '--verbose', type=bool, default=False)
+    parser.add_argument('-r', '--n_repeats', type=int, default=2)
     args = parser.parse_args()
+
+    init(f'-use_input_sc -input_ab_scheme AHo_Scheme -ignore_unrecognized_res \
+        -ignore_zero_occupancy false -load_PDB_components true -relax:default_repeats {args.n_repeats} -no_fconfig', silent=True)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
     logger = logging.getLogger(__name__)
     log_file = os.path.join(args.pdb_dir,f'energy_calculation_{args.mode}.log')
-    handler_test = logging.FileHandler(log_file) 
+    handler_test = logging.FileHandler(log_file, mode='w') 
     handler_control = logging.StreamHandler()    
 
     selfdef_fmt = '%(asctime)s - %(funcName)s - %(levelname)s - %(message)s'
