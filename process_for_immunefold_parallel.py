@@ -74,8 +74,7 @@ def trim_tcr_for_structure(seq, chain_type, debug_id):
     
     # Final length check
     if len(seq) > 256:
-        # print(f"[{debug_id}] {chain_type} REJECTED: Trimmed sequence too long ({len(seq)} > 256).")
-        return None
+        print(f"[{debug_id}] {chain_type} REJECTED: Trimmed sequence too long ({len(seq)} > 256).")
 
     return seq
 
@@ -204,7 +203,7 @@ def process_single_row(args):
 # =========================
 # Main Processor
 # =========================
-def process_tcr_csv(csv_file, output_fasta, max_rows=None, num_workers=None):
+def process_tcr_csv(csv_file, output_fasta, max_rows=None, num_workers=None, force_hla=False):
     
     # 1. Verify Stitchr exists
     if shutil.which("stitchr") is None:
@@ -218,11 +217,14 @@ def process_tcr_csv(csv_file, output_fasta, max_rows=None, num_workers=None):
         df = df.head(max_rows)
 
     # Filter HLA-A*02
-    df = df[df["hla_long"].str.contains("A\\*02", na=False)]
-    print(f"HLA-A*02 Rows to process: {len(df)}")
+    if force_hla:
+        df = df[df["hla_long"].str.contains("A\\*02", na=False)]
+        print(f"HLA-A*02 Rows to process: {len(df)}")
+    else:
+        print("Forcing all rows to use HLA-A*02!")
     
     if len(df) == 0:
-        print("ERROR: No rows matched HLA-A*02.")
+        print("ERROR: No rows to process")
         return
 
     # Prepare data for parallel processing
@@ -282,6 +284,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", default="TCR_B_A_P_M")
     parser.add_argument("--max-rows", type=int, default=None)
     parser.add_argument("-j", "--workers", type=int, default=None, help="Number of CPU cores to use")
+    parser.add_argument("--force-hla", action='store_true', default=False, help="Force any HLA gene/allele to use HLA-A*02")
     args = parser.parse_args()
 
-    process_tcr_csv(args.input_csv, args.output, args.max_rows, args.workers)
+    process_tcr_csv(args.input_csv, args.output, args.max_rows, args.workers, args.force_hla)
