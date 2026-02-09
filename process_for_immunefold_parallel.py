@@ -29,7 +29,7 @@ class HLAManager:
         """Downloads and parses the IMGT/HLA database."""
         url = "https://raw.githubusercontent.com/ANHIG/IMGTHLA/Latest/fasta/hla_prot.fasta"
         print("Downloading IMGT/HLA database...")
-        
+
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -38,20 +38,17 @@ class HLAManager:
             return
 
         fasta_file = io.StringIO(response.text)
-        
+
+
         # Standard offsets
         SIGNAL_PEPTIDE_LEN = 24
         DOMAIN_LEN = 182 # Alpha 1 + Alpha 2
-        
+
         for record in SeqIO.parse(fasta_file, "fasta"):
             # Extract ID (e.g., HLA-A*02:01:01:01)
             desc_parts = record.description.split(" ")
             full_name = desc_parts[1] if len(desc_parts) > 1 else record.id
-            
-            # Filter for Classical Class I
-            if not full_name.startswith(("HLA-A", "HLA-B", "HLA-C")):
-                continue
-            
+
             # Filter quality
             if len(record.seq) < (SIGNAL_PEPTIDE_LEN + DOMAIN_LEN) or full_name.endswith("N"):
                 continue
@@ -59,13 +56,13 @@ class HLAManager:
             # Store Sequence
             seq_alpha1_2 = str(record.seq)[SIGNAL_PEPTIDE_LEN : SIGNAL_PEPTIDE_LEN + DOMAIN_LEN]
             self.sequences[full_name] = seq_alpha1_2
-            
+
             # Build Reference Map for fuzzy matching
             # We map the 2-field resolution (e.g., HLA-A*02:01) to the full key
             # This allows O(1) lookup for short names later
             parts = full_name.split(":")
             if len(parts) >= 2:
-                two_field_key = ":".join(parts[:2]) # e.g., HLA-A*02:01
+                two_field_key = "HLA-" + ":".join(parts[:2]) # e.g., HLA-A*02:01
                 # Only store the first time we see this 2-field key (usually the reference allele)
                 if two_field_key not in self.reference_map:
                     self.reference_map[two_field_key] = full_name
@@ -79,11 +76,11 @@ class HLAManager:
         """
         # 1. Force Uppercase and strip whitespace
         name = raw_name.upper().strip()
-        
+
         # 2. Handle 'HLA' prefix variability
         # Remove 'HLA-' or 'HLA' if present to start clean
-        name = re.sub(r^HLA-?, "", name)
-        
+        name = re.sub(r"^HLA-?", "", name)
+
         # 3. Ensure Gene and Fields are split by '*'
         # If input is 'A02:01', this splits A and 02:01
         if "*" not in name:
@@ -91,10 +88,10 @@ class HLAManager:
             gene = name[0]
             fields = name[1:]
             name = f"{gene}*{fields}"
-        
+
         # 4. Re-add standard prefix
         standard_name = f"HLA-{name}"
-        
+
         return standard_name
 
     def get_sequence(self, raw_name):
@@ -102,11 +99,13 @@ class HLAManager:
         Takes a raw name, normalizes it, and finds the Alpha1/2 sequence.
         """
         search_key = self.normalize_name(raw_name)
-        
+
+
+
         # Strategy 1: Exact Match (User provided full 8-digit ID)
         if search_key in self.sequences:
             return search_key, self.sequences[search_key]
-            
+
         # Strategy 2: Lookup in Reference Map (User provided 4-digit ID)
         # e.g., User gave "A*02:01", we look up mapping to "HLA-A*02:01:01:01"
         if search_key in self.reference_map:
@@ -118,7 +117,7 @@ class HLAManager:
         for db_key in self.sequences:
             if db_key.startswith(search_key):
                 return db_key, self.sequences[db_key]
-                
+
         return None, None
 
 manager = HLAManager()
@@ -152,7 +151,7 @@ def trim_tcr_for_structure(seq, chain_type, debug_id):
     if not seq:
         # print(f"[{debug_id}] {chain_type} REJECTED: Sequence is empty.")
         return None
-    
+
     original_len = len(seq)
     if original_len < 50:
         # print(f"[{debug_id}] {chain_type} REJECTED: Sequence too short (<50 AA).")
@@ -160,7 +159,7 @@ def trim_tcr_for_structure(seq, chain_type, debug_id):
 
     # --- 1. Trim C-terminus (Remove Constant Region) ---
     j_motif = list(re.finditer(r'([FYW]G[A-Z]G)|(FARG)', seq))
-    
+
     if len(j_motif) > 0:
         cut_point = j_motif[-1].start() + 15
         cut_point = min(cut_point, len(seq))
@@ -178,13 +177,13 @@ def trim_tcr_for_structure(seq, chain_type, debug_id):
                 seq = seq[i:]
                 found_start = True
                 break
-        
+
         if not found_start:
             seq = seq[20:]
-    
+
     # Final length check
     if len(seq) > 256:
-        print(f"[{debug_id}] {chain_type} REJECTED: Trimmed sequence too long ({len(seq)} > 256).")
+        print(f"[{debug_id}] {chain_type} WARNING: Trimmed sequence too long ({len(seq)} > 256).")
 
     return seq
 
@@ -194,7 +193,7 @@ def trim_tcr_for_structure(seq, chain_type, debug_id):
 # =========================
 def run_stitchr(v_gene, j_gene, cdr3, debug_id, chain_type):
     """Run stitchr and return sequence or None."""
-    
+
     v_clean = v_gene.replace("_", "/")
     j_clean = j_gene.replace("_", "/")
 
@@ -210,7 +209,7 @@ def run_stitchr(v_gene, j_gene, cdr3, debug_id, chain_type):
     try:
         # Use simple subprocess call
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        
+
         if result.returncode != 0:
             # We construct an error string to return so the main process can print it
             # to avoid interleaved printing in parallel
@@ -220,10 +219,10 @@ def run_stitchr(v_gene, j_gene, cdr3, debug_id, chain_type):
         for line in result.stdout.splitlines():
             if not line.startswith(">"):
                 seq += line.strip()
-        
+
         if not seq:
             return None, f"[{debug_id}] {chain_type} STITCHR OK but OUTPUT EMPTY."
-            
+
         return seq, None
 
     except Exception as e:
@@ -290,7 +289,7 @@ def process_single_row(args):
     # Prepare Final (Trimmed) Output Entry
     final_seq_str = f"{clean_beta}:{clean_alpha}:{peptide}:{mhc_seq}"
     seq_len = len(final_seq_str)
-    
+
     trimmed_entry = (
         f">{final_id}_B_A_P_M\n"
         f"{final_seq_str}\n"
@@ -302,9 +301,9 @@ def process_single_row(args):
 
     return {
         'status': 'success',
-        'full_entry': full_entry,
+        #'full_entry': full_entry,
         'trimmed_entry': trimmed_entry,
-        'short_mhc': mhc_seq,
+        #'short_mhc': mhc_seq,
         'msg': log_msg
     }
 
@@ -313,7 +312,7 @@ def process_single_row(args):
 # Main Processor
 # =========================
 def process_tcr_csv(csv_file, output_fasta, max_rows=None, num_workers=None):
-    
+
     # 1. Verify Stitchr exists
     if shutil.which("stitchr") is None:
         print("ERROR: 'stitchr' is not installed or not in your PATH.")
@@ -321,10 +320,10 @@ def process_tcr_csv(csv_file, output_fasta, max_rows=None, num_workers=None):
 
     print(f"Reading CSV: {csv_file}")
     df = pd.read_csv(csv_file)
-    
+
     if max_rows:
         df = df.head(max_rows)
-    
+
     if len(df) == 0:
         print("ERROR: No rows to process")
         return
@@ -337,39 +336,39 @@ def process_tcr_csv(csv_file, output_fasta, max_rows=None, num_workers=None):
     # Determine workers
     if num_workers is None:
         num_workers = max(1, multiprocessing.cpu_count() - 1)
-    
+
     print(f"Starting Parallel Processing with {num_workers} workers...")
-    
+
     output_path = Path(output_fasta + '.fasta')
     #full_output_path = Path(output_fasta + '_no_trim.fasta')
     #shortMHC_output_path = Path(output_fasta + '_mhc_trim.fasta')
-    
+
     success_count = 0
     fail_count = 0
 
     #with open(output_path, "w") as fh, open(full_output_path, 'w') as fh_full, open(shortMHC_output_path, 'w') as fh_shortMHC:
     with open(output_path, "w") as fh:
-        
+
         # Create Pool
         with multiprocessing.Pool(processes=num_workers) as pool:
             # imap preserves order of input list in the output iterator
             # chunksize can be tweaked, but default is usually fine for subprocess calls
             results = pool.imap(process_single_row, tasks)
-            
+
             # Iterate through results as they complete (in order)
             for res in tqdm(results, total=len(tasks), unit="seq"):
-                
+
                 if res['status'] == 'success':
                     fh.write(res['trimmed_entry'])
                     #fh_full.write(res['full_entry'])
                     #fh_shortMHC.write(res['short_mhc'])
                     success_count += 1
                     # print(res['msg']) # Uncomment if you want spammy success logs
-                
+
                 elif res['status'] == 'fail':
                     fail_count += 1
                     print(res['msg']) # Print failures to console
-                
+
                 elif res['status'] == 'skip':
                     fail_count += 1
                     # print(res['msg']) # Uncomment if you want skip logs
