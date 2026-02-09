@@ -19,7 +19,7 @@ def parse_list(name_idx, pdb_dir):
     if not os.path.exists(name_idx):
         logger.error(f"Index file {name_idx} not found.")
         return
-    
+
     names = list(pd.read_csv(name_idx, names=['name'], header=None)['name'])
     for name in names:
         pdb_file = os.path.join(pdb_dir, f"{name}.pdb")
@@ -32,18 +32,18 @@ def combine_chains(pose, chains_indices):
     """Combine specified chains into a single pose. Indices are assumed to be 1-based (Rosetta standard)."""
     combined_pose = rosetta.core.pose.Pose()
     split_poses = pose.split_by_chain() # Returns a vector1, 1-based indexing
-    
+
     for i, chain_index in enumerate(chains_indices):
         # vector1 indexing checks
         if chain_index > len(split_poses):
             raise IndexError(f"Chain index {chain_index} out of bounds for pose with {len(split_poses)} chains.")
-            
+
         chain_pose = split_poses[chain_index]
         if i == 0:
             combined_pose = chain_pose.clone()
         else:
             combined_pose.append_pose_by_jump(chain_pose, combined_pose.total_residue())
-            
+
     return combined_pose
 
 def calc_interface_energy(pose, chain_ids):
@@ -51,7 +51,7 @@ def calc_interface_energy(pose, chain_ids):
     # Assuming first 2 are TCR, rest are Antigen as per original logic
     tcr_chain_ids = chain_ids[:2]
     antigen_chain_ids = chain_ids[2:]
-    
+
     # Construct interface string (e.g., "AB_C")
     interface_tcr = ''.join(tcr_chain_ids)
     interface_antigen = ''.join(antigen_chain_ids)
@@ -81,20 +81,20 @@ def calc_whole_energy(pose, chain_ids):
     if peptide_chain_idx > len(split_poses):
          logger.error(f"Cannot extract chain {peptide_chain_idx}, pose only has {len(split_poses)} chains.")
          return 9999.9 # Error code
-         
+
     peptide_pose = split_poses[peptide_chain_idx]
     TCR_MHC_pose = combine_chains(pose, TCR_MHC_chain_indices)
-    
+
     # Create combined pose for total score
     combined_pose = rosetta.core.pose.Pose(peptide_pose)
     combined_pose.append_pose_by_jump(TCR_MHC_pose, combined_pose.total_residue())
-    
+
     scorefxn = rosetta.core.scoring.get_score_function()
-    
+
     total_energy = scorefxn(combined_pose)
     energy_peptide = scorefxn(peptide_pose)
     energy_receptor = scorefxn(TCR_MHC_pose)
-    
+
     binding_energy = total_energy - (energy_peptide + energy_receptor)
     return binding_energy
 
@@ -107,10 +107,12 @@ def process_pdb(pdb_file, args):
     4. Returns dictionary of results.
     """
     pdb_name = os.path.basename(pdb_file).replace('.pdb', '')
-    chain_ids = pdb_name.split('_')[1:]
-    
+    #chain_ids = pdb_name.split('_')[1:]
+    # FIXME fragile and hardcoded, but is a precondition for now
+    chain_ids = ["B", "A", "P", "M"]
+
     logger.info(f"Processing {pdb_name}...")
-    
+
     try:
         pose = pyrosetta.pose_from_pdb(pdb_file)
     except Exception as e:
@@ -119,20 +121,20 @@ def process_pdb(pdb_file, args):
 
     scorefxn = pyrosetta.create_score_function('ref2015')
     relax = FastRelax(scorefxn)
-    # The user requested '1 relax step at a time'. 
+    # The user requested '1 relax step at a time'.
     # Standard FastRelax does multiple cycles. We rely on the outer loop for the requested 'repeats'.
     # We do NOT set -relax:default_repeats globally.
-    
+
     result_row = {'PDB': pdb_name}
 
     for i in range(args.n_repeats):
         interface_label = f"interface_rep{i + 1}"
         whole_label = f"whole_rep{i + 1}"
-        
+
         try:
             # 1. Relax (Perform 1 relax step/cycle)
             relax.apply(pose)
-            
+
             # 2. Calculate Energy
             '''
             if args.mode == 'interface':
@@ -142,13 +144,13 @@ def process_pdb(pdb_file, args):
             else:
                 energy = 0.0
             '''
-            
+
             result_row[interface_label] = calc_interface_energy(pose, chain_ids)
             result_row[whole_label] = calc_whole_energy(pose, chain_ids)
             logger.info(f"{pdb_name} - {whole_label}: {result_row[whole_label]} - {interface_label}: {result_row[interface_label]}")
-            
+
         except Exception as e:
-            logger.error(f"Error during setp {i + 1} for {pdb_name}: {e}")
+            logger.error(f"Error during step {i + 1} for {pdb_name}: {e}")
             result_row[interface_label] = None
             result_row[whole_label] = None
 
@@ -171,7 +173,7 @@ def main(args):
     # Run multiprocessing
     # using starmap to pass (pdb_file, args) tuples
     tasks = [(f, args) for f in input_files]
-    
+
     with mp.Pool(args.cpus) as p:
         results = p.starmap(process_pdb, tasks)
 
@@ -183,11 +185,11 @@ def main(args):
         # Determine columns dynamically based on the first successful result
         # keys will be 'PDB', 'mode_rep1', 'mode_rep2', ...
         cols = ['PDB'] + [f"interface_rep{i+1}" for i in range(args.n_repeats)] + [f"whole_rep{i+1}" for i in range(args.n_repeats)]
-        
+
         df = pd.DataFrame(clean_results)
         # Ensure column order
-        df = df[cols] 
-        
+        df = df[cols]
+
         df.to_csv(args.output_file, index=False)
         logger.info(f"Successfully wrote results to {args.output_file}")
     else:
@@ -208,10 +210,10 @@ if __name__ == '__main__':
     # Removed -relax:default_repeats flag to control stepping manually in the loop
     init_flags = '-use_input_sc -input_ab_scheme AHo_Scheme -ignore_unrecognized_res \
         -ignore_zero_occupancy false -load_PDB_components true -relax:default_repeats 1 -no_fconfig'
-    
+
     if not args.verbose:
         init_flags += ' -mute all'
-        
+
     init(init_flags, silent=True)
 
     if args.verbose:
