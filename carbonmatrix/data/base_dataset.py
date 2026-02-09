@@ -76,6 +76,8 @@ class SeqDataset(torch.utils.data.Dataset):
         multimer_str_seq = str_seq.split(':')
         chain_num = len(multimer_str_seq)
         # pdb.set_trace()
+        # disable trimming, can be buggy
+        '''
         if self.type == 'ab':
             assert chain_num >= 2
             multimer_str_seq[0] = make_domain(multimer_str_seq[0],'H', self.type)
@@ -87,6 +89,7 @@ class SeqDataset(torch.utils.data.Dataset):
         elif self.type == 'nb':
             assert chain_num >= 1
             multimer_str_seq[0] = make_domain(multimer_str_seq[0],'H', self.type)
+        '''
         
         chain_ids = []
         for i in range(chain_num):
