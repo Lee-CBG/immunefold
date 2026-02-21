@@ -51,9 +51,9 @@ def compute_pair_iptm(logits, breaks, mask, chain_id):
 
     chain_pair_iptm = {}
     chain_id_list = torch.unique(chain_id).tolist()
-    for idx1 in asym_ids_list:
+    for idx1 in chain_id_list:
         chain_iptm = {}
-        for idx2 in asym_ids_list:
+        for idx2 in chain_id_list:
             mask_pair_chain = (
                 (chain_id[:, None, :] == idx1)
                 * (chain_id[:, :, None] == idx2)
