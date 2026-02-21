@@ -3,6 +3,7 @@ import logging
 from logging.handlers import QueueHandler, QueueListener
 
 import numpy as np
+import pandas as pd
 import torch
 import hydra
 from omegaconf import DictConfig
@@ -121,7 +122,7 @@ def immunefold(model, batch, cfg):
         
         logits = ret['heads']['predicted_aligned_error']['logits']
         breaks = ret['heads']['predicted_aligned_error']['breaks']
-        print(compute_pair_iptm(logits, breaks, batch['mask'], batch['chain_id']))
+        print(pd.DataFrame(compute_pair_iptm(logits, breaks, batch['mask'], batch['chain_id'])))
 
     save_batch_pdb(ret, batch, cfg.output_dir)
 
