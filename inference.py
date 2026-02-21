@@ -104,6 +104,10 @@ def _compute_ptm(values, mask, chain_id=None, interface=True, batch=None):
     breaks = values['heads']['predicted_aligned_error']['breaks']
     ptm = compute_ptm(logits, breaks, mask)
     if interface and chain_id is not None:
+        print(breaks)
+        print(mask)
+        print(chain_id)
+        print(interface)
         iptm = compute_ptm(logits, breaks, mask, chain_id, interface)
         ptm = 0.8 * iptm + 0.2 * ptm
     str_ptm = ','.join([str(x.item()) for x in ptm.to('cpu')])
@@ -156,7 +160,7 @@ def predict(cfg):
     model.impl.load_state_dict(ckpt['model_state_dict'], strict=True)
     model.to(device)
     model.eval()
-    model.esm = torch.compile(model.esm)
+    #model.esm = torch.compile(model.esm)
 
 
     for batch in test_loader:
