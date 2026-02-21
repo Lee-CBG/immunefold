@@ -52,7 +52,6 @@ def compute_pair_iptm(logits, breaks, mask, chain_id):
     chain_pair_iptm = {}
     chain_id_list = torch.unique(chain_id).tolist()
     for idx1 in chain_id_list:
-        chain_iptm = {}
         for idx2 in chain_id_list:
             mask_pair_chain = (
                 (chain_id[:, None, :] == idx1)
@@ -61,12 +60,11 @@ def compute_pair_iptm(logits, breaks, mask, chain_id):
                 * mask[:, :, None]
             )
 
-            chain_iptm[idx2] = torch.max(
+            chain_pair_iptm[f'pair_iptm.{idx1}.{idx2}'] = torch.max(
                 torch.sum(predicted_tm_term * mask_pair_chain, dim=-1)
                 / (torch.sum(mask_pair_chain, dim=-1) + 1e-5),
                 dim=1,
             ).values
-        chain_pair_iptm[idx1] = chain_iptm
 
     return chain_pair_iptm
 
