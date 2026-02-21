@@ -126,9 +126,9 @@ def immunefold(model, batch, cfg):
         df['ptm'] = ptm.detach().cpu()
         df['full_plddt'] = full_plddt.detach().cpu()
         df['input_name'] = batch['name']
-        print(df)
 
     save_batch_pdb(ret, batch, cfg.output_dir)
+    return df
 
 def predict(cfg):
     if cfg.data_io == 'dir':
@@ -161,6 +161,8 @@ def predict(cfg):
 
     logging.info(f'esm2-model-{cfg.model.esm2_model_file}')
 
+    df = pd.DataFrame()
+
     model = ImmuneFold(config = cfg.model)
     model.impl.load_state_dict(ckpt['model_state_dict'], strict=True)
     model.to(device)
@@ -172,8 +174,10 @@ def predict(cfg):
         logging.info('names= {}'.format(','.join(batch['name'])))
         logging.info('str_len= {}'.format(','.join([str(len(x)) for x in batch['str_seq']])))
         start_time = time.time()
-        immunefold(model, batch, cfg)
+        out_df = immunefold(model, batch, cfg)
         logging.info('Inference Time: {}'.format(time.time() - start_time))
+        df = pd.concat([df, out_df])
+    df.to_csv(cfg.output_dir + '.csv', index=False)
 
 
 @hydra.main(version_base=None, config_path="config", config_name="inference_tcr")
