@@ -14,7 +14,7 @@ from carbonmatrix.model.immunefold import ImmuneFold
 from carbonmatrix.data.dataset import SeqDatasetDirIO, SeqDatasetFastaIO, AbStructureDataNpzIO
 from carbonmatrix.data.base_dataset import TransformedDataLoader as DataLoader
 from carbonmatrix.data.base_dataset import collate_fn_seq, collate_fn_struc
-from carbonmatrix.common.confidence import compute_plddt, compute_ptm
+from carbonmatrix.common.confidence import compute_plddt, compute_ptm, compute_pair_iptm
 
 torch.set_float32_matmul_precision('high')
 
@@ -104,10 +104,6 @@ def _compute_ptm(values, mask, chain_id=None, interface=True, batch=None):
     breaks = values['heads']['predicted_aligned_error']['breaks']
     ptm = compute_ptm(logits, breaks, mask)
     if interface and chain_id is not None:
-        print(breaks)
-        print(mask)
-        print(chain_id)
-        print(interface)
         iptm = compute_ptm(logits, breaks, mask, chain_id, interface)
         ptm = 0.8 * iptm + 0.2 * ptm
     str_ptm = ','.join([str(x.item()) for x in ptm.to('cpu')])
@@ -122,6 +118,10 @@ def immunefold(model, batch, cfg):
         ptm = _compute_ptm(ret, batch['mask'], chain_id=batch['chain_id'], interface=True, batch=batch)
         plddt, full_plddt = _compute_plddt(ret, batch['mask'])
         ret.update(ptm=ptm, plddt=plddt)
+        
+        logits = ret['heads']['predicted_aligned_error']['logits']
+        breaks = ret['heads']['predicted_aligned_error']['breaks']
+        print(compute_pair_iptm(logits, breaks, batch['mask'], batch['chain_id']))
 
     save_batch_pdb(ret, batch, cfg.output_dir)
 
