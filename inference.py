@@ -122,7 +122,12 @@ def immunefold(model, batch, cfg):
         
         logits = ret['heads']['predicted_aligned_error']['logits']
         breaks = ret['heads']['predicted_aligned_error']['breaks']
-        print(pd.DataFrame(compute_pair_iptm(logits, breaks, batch['mask'], batch['chain_id'])))
+        df = pd.DataFrame({k:v.detach().cpu() for k, v in compute_pair_iptm(logits, breaks, batch['mask'], batch['chain_id']).items())
+        df['ptm'] = ptm
+        df['plddt'] = plddt
+        df['full_plddt'] = full_plddt
+        df['input_name'] = batch['name']
+        print(df)
 
     save_batch_pdb(ret, batch, cfg.output_dir)
 
